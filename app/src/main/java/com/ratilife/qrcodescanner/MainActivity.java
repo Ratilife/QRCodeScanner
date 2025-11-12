@@ -3,10 +3,12 @@ package com.ratilife.qrcodescanner;
 import android.content.pm.PackageManager;
 import android.media.Image;
 import android.os.Bundle;
+import android.util.Log;
 import android.util.Size;
 import android.widget.EditText;
 import android.widget.Toast;
 
+import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.android.gms.tasks.Task;
 import com.google.common.util.concurrent.ListenableFuture;
@@ -61,6 +63,8 @@ public class MainActivity extends AppCompatActivity {
         } else {
             ActivityCompat.requestPermissions(MainActivity.this, new String[]{Manifest.permission.CAMERA}, 101);
         }
+
+
     }
     private void init(){
         cameraProviderListenableFuture = ProcessCameraProvider.getInstance(MainActivity.this);
@@ -69,7 +73,7 @@ public class MainActivity extends AppCompatActivity {
             public void run() {
                 try {
                     ProcessCameraProvider cameraProvider = cameraProviderListenableFuture.get();
-                    bildImageAnalysis(cameraProvider);
+                    buildImageAnalysis(cameraProvider);
                 } catch (ExecutionException | InterruptedException e) {
                     throw new RuntimeException(e);
                 }
@@ -86,7 +90,7 @@ public class MainActivity extends AppCompatActivity {
             Toast.makeText(MainActivity.this, "Permissions Denied", Toast.LENGTH_SHORT).show();
         }
     }
-    private void bildImageAnalysis(ProcessCameraProvider processCameraProvider){
+    private void buildImageAnalysis(ProcessCameraProvider processCameraProvider){
 
         ImageAnalysis imageAnalysis = new ImageAnalysis.Builder().setTargetResolution((new Size(1280,720)))
                 .setBackpressureStrategy(ImageAnalysis.STRATEGY_KEEP_ONLY_LATEST).build();
@@ -96,22 +100,50 @@ public class MainActivity extends AppCompatActivity {
                     @Override
                     public void analyze(@NonNull ImageProxy image) {
                         Image mediaImage = image.getImage();
-                        if(mediaImage!=null){
-                            InputImage image2 = InputImage.fromMediaImage(mediaImage, image.getImageInfo().getRotationDegrees());
-                            BarcodeScanner scanner = BarcodeScanning.getClient();
-                            Task<List<Barcode>> results = scanner.process(image2);
-                            results.addOnSuccessListener(new OnSuccessListener<List<Barcode>>() {
-                                @Override
-                                public void onSuccess(List<Barcode> barcodes) {
-                                   for(Barcode barcode : barcodes){
-                                       final String getValue = barcode.getRawValue();
-                                       qrCodeTxt.setText(getValue);
-                                   }
-                                   image.close();
-                                   mediaImage.close();
-                                }
-                            });
+                        if (mediaImage == null) {
+                            image.close();
+                            return;
                         }
+
+                        InputImage inputImage = InputImage.fromMediaImage(
+                                mediaImage,
+                                image.getImageInfo().getRotationDegrees()
+                        );
+
+                        BarcodeScanner scanner = BarcodeScanning.getClient();
+                        Task<List<Barcode>> results = scanner.process(inputImage);
+
+                        // Обработка успешного результата
+                        results.addOnSuccessListener(new OnSuccessListener<List<Barcode>>() {
+                            @Override
+                            public void onSuccess(List<Barcode> barcodes) {
+                                // Проверяем, что Activity еще существует
+                                if (!isDestroyed() && !isFinishing()) {
+                                    for (Barcode barcode : barcodes) {
+                                        String rawValue = barcode.getRawValue();
+                                        if (rawValue != null && !rawValue.trim().isEmpty()) {
+                                            String trimmedValue = rawValue.trim();
+                                            qrCodeTxt.setText(trimmedValue);
+                                            Log.d("BarcodeScanner", "QR-код успешно считан: " + trimmedValue);
+                                            break; // Обрабатываем только первый найденный код
+                                        }
+                                    }
+                                }
+
+                                // Закрываем ImageProxy после завершения обработки
+                                image.close();
+                            }
+                        });
+
+                        // Обработка ошибок
+                        results.addOnFailureListener(new OnFailureListener() {
+                            @Override
+                            public void onFailure(@NonNull Exception e) {
+                                Log.e("BarcodeScanner", "Ошибка при сканировании QR-кода", e);
+                                // Закрываем ImageProxy даже при ошибке
+                                image.close();
+                            }
+                        });
                     }
                 });
         Preview preview = new Preview.Builder().build();

@@ -11,10 +11,29 @@
    <EditText
        android:layout_width="match_parent"
        android:layout_height="wrap_content"
-       android:id="@+id/qrCodeTxt"/>
+       android:id="@+id/qrCodeTxt"
+       android:hint="Введите QR-код" />
+
 
     <androidx.camera.view.PreviewView
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:id="@+id/cameraPreview"/>
+        android:id="@+id/cameraPreview">
+
+        <View
+            android:id="@+id/camera_border"
+            android:layout_width="200dp"
+            android:layout_height="200dp"
+            android:layout_gravity="center"
+            android:background="@drawable/border_frame" />
+    </androidx.camera.view.PreviewView>
+
+    <!-- Видоискатель камеры
+    <SurfaceView
+        android:id="@+id/camera_preview"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+    -->
+    <!-- Рамка для камеры -->
+
 </LinearLayout>
